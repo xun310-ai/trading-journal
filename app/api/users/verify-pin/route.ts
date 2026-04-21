@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import getDb from '@/lib/db'
+import { ensureInit } from '@/lib/db'
 
 export async function POST(req: NextRequest) {
-  const db = getDb()
+  const db = await ensureInit()
   const { id, pin } = await req.json()
-  const user = db.prepare('SELECT pin FROM users WHERE id=?').get(id) as { pin: string | null } | undefined
+  const result = await db.execute({ sql: 'SELECT pin FROM users WHERE id=?', args: [id] })
+  const user = result.rows[0] as unknown as { pin: string | null } | undefined
   if (!user) return NextResponse.json({ ok: false })
-  if (!user.pin) return NextResponse.json({ ok: true }) // 沒設 PIN 直接通過
+  if (!user.pin) return NextResponse.json({ ok: true })
   return NextResponse.json({ ok: user.pin === String(pin) })
 }

@@ -1,35 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
-import getDb from '@/lib/db'
+import { ensureInit } from '@/lib/db'
 
 export async function GET() {
-  const db = getDb()
-  // 回傳時不附上 PIN，只回傳是否有設定
-  const users = db.prepare("SELECT id, name, CASE WHEN pin IS NOT NULL AND pin != '' THEN 1 ELSE 0 END as has_pin FROM users ORDER BY id").all()
-  return NextResponse.json(users)
+  const db = await ensureInit()
+  const result = await db.execute(
+    "SELECT id, name, CASE WHEN pin IS NOT NULL AND pin != '' THEN 1 ELSE 0 END as has_pin FROM users ORDER BY id"
+  )
+  return NextResponse.json(result.rows)
 }
 
 export async function POST(req: NextRequest) {
-  const db = getDb()
+  const db = await ensureInit()
   const { name } = await req.json()
-  const result = db.prepare('INSERT INTO users (name) VALUES (?)').run(name)
-  return NextResponse.json({ id: result.lastInsertRowid })
+  const result = await db.execute({ sql: 'INSERT INTO users (name) VALUES (?)', args: [name] })
+  return NextResponse.json({ id: Number(result.lastInsertRowid) })
 }
 
 export async function PUT(req: NextRequest) {
-  const db = getDb()
+  const db = await ensureInit()
   const { id, name, pin } = await req.json()
   if (pin !== undefined) {
-    db.prepare('UPDATE users SET name=?, pin=? WHERE id=?').run(name, pin || null, id)
+    await db.execute({ sql: 'UPDATE users SET name=?, pin=? WHERE id=?', args: [name, pin || null, id] })
   } else {
-    db.prepare('UPDATE users SET name=? WHERE id=?').run(name, id)
+    await db.execute({ sql: 'UPDATE users SET name=? WHERE id=?', args: [name, id] })
   }
   return NextResponse.json({ ok: true })
 }
 
 export async function DELETE(req: NextRequest) {
-  const db = getDb()
+  const db = await ensureInit()
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
-  db.prepare('DELETE FROM users WHERE id=?').run(id)
+  await db.execute({ sql: 'DELETE FROM users WHERE id=?', args: [id] })
   return NextResponse.json({ ok: true })
 }

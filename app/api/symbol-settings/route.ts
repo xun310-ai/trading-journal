@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import getDb from '@/lib/db'
+import { ensureInit } from '@/lib/db'
 
 export async function GET() {
-  const db = getDb()
-  const rows = db.prepare('SELECT * FROM symbol_settings ORDER BY symbol').all()
-  return NextResponse.json(rows)
+  const db = await ensureInit()
+  const result = await db.execute('SELECT * FROM symbol_settings ORDER BY symbol')
+  return NextResponse.json(result.rows)
 }
 
 export async function PUT(req: NextRequest) {
-  const db = getDb()
+  const db = await ensureInit()
   const { symbol, point_value, commission } = await req.json()
-  db.prepare('UPDATE symbol_settings SET point_value=?, commission=? WHERE symbol=?')
-    .run(point_value, commission, symbol)
+  await db.execute({
+    sql: 'UPDATE symbol_settings SET point_value=?, commission=? WHERE symbol=?',
+    args: [point_value, commission, symbol]
+  })
   return NextResponse.json({ ok: true })
 }
